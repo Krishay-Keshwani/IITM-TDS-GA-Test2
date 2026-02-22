@@ -7,10 +7,10 @@ import math
 
 app = FastAPI()
 
+# Removed allow_credentials so FastAPI is legally allowed to return "*"
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -22,7 +22,6 @@ class AnalyticsRequest(BaseModel):
 json_path = os.path.join(os.path.dirname(__file__), 'q-vercel-latency.json')
 with open(json_path, 'r') as f:
     raw_data = json.load(f)
-    # If the JSON is wrapped inside a dictionary instead of a raw list, safely extract it
     if isinstance(raw_data, dict):
         for key, value in raw_data.items():
             if isinstance(value, list):
@@ -48,17 +47,14 @@ def get_analytics(request: AnalyticsRequest):
     results = {}
 
     for region in request.regions:
-        # Find the region, ignoring case sensitivity just to be safe
         region_data = [row for row in ALL_DATA if isinstance(row, dict) and str(row.get('region', '')).lower() == str(region).lower()]
         
         if not region_data:
             continue
 
-        # Force values to be floats so math doesn't crash on hidden strings
         latencies = [float(r['latency']) for r in region_data if 'latency' in r]
         uptimes = [float(r['uptime']) for r in region_data if 'uptime' in r]
         
-        # Protect against dividing by zero if data is missing
         avg_latency = sum(latencies) / len(latencies) if latencies else 0
         p95_latency = calculate_percentile(latencies, 95) if latencies else 0
         avg_uptime = sum(uptimes) / len(uptimes) if uptimes else 0
