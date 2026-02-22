@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 import json
@@ -17,11 +17,21 @@ app.add_middleware(
 
 class AnalyticsRequest(BaseModel):
     regions: list[str]
-    threshold_ms: int
+    threshold_ms: float
 
 json_path = os.path.join(os.path.dirname(__file__), 'q-vercel-latency.json')
 with open(json_path, 'r') as f:
-    ALL_DATA = json.load(f)
+    raw_data = json.load(f)
+    # If the JSON is wrapped inside a dictionary instead of a raw list, safely extract it
+    if isinstance(raw_data, dict):
+        for key, value in raw_data.items():
+            if isinstance(value, list):
+                ALL_DATA = value
+                break
+        else:
+            ALL_DATA = []
+    else:
+        ALL_DATA = raw_data
 
 def calculate_percentile(data, percentile):
     if not data: return 0
@@ -32,24 +42,26 @@ def calculate_percentile(data, percentile):
     if f == c: return data[int(k)]
     return data[int(f)] * (c - k) + data[int(c)] * (k - f)
 
-# Listen to both /api and / to prevent Vercel routing quirks
 @app.post("/api")
 @app.post("/")
 def get_analytics(request: AnalyticsRequest):
     results = {}
 
     for region in request.regions:
-        region_data = [row for row in ALL_DATA if row.get('region') == region]
+        # Find the region, ignoring case sensitivity just to be safe
+        region_data = [row for row in ALL_DATA if isinstance(row, dict) and str(row.get('region', '')).lower() == str(region).lower()]
         
         if not region_data:
             continue
 
-        latencies = [r['latency'] for r in region_data]
-        uptimes = [r['uptime'] for r in region_data]
+        # Force values to be floats so math doesn't crash on hidden strings
+        latencies = [float(r['latency']) for r in region_data if 'latency' in r]
+        uptimes = [float(r['uptime']) for r in region_data if 'uptime' in r]
         
-        avg_latency = sum(latencies) / len(latencies)
-        p95_latency = calculate_percentile(latencies, 95)
-        avg_uptime = sum(uptimes) / len(uptimes)
+        # Protect against dividing by zero if data is missing
+        avg_latency = sum(latencies) / len(latencies) if latencies else 0
+        p95_latency = calculate_percentile(latencies, 95) if latencies else 0
+        avg_uptime = sum(uptimes) / len(uptimes) if uptimes else 0
         
         breaches = sum(1 for l in latencies if l > request.threshold_ms)
 
