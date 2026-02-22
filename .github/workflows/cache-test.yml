@@ -1,0 +1,25 @@
+name: Dependency Caching Action
+
+# Runs when you push code, or you can run it manually
+on: [push, workflow_dispatch]
+
+jobs:
+  build-and-cache:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 1. First, the robot checks out your code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Next, it sets up the digital pantry (cache)
+      - name: Cache dependencies
+        id: my-cache # We give this an ID so we can refer to it in the next step
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip # We'll cache Python package downloads as a realistic example
+          key: cache-e1153be # The EXACT key required by the assignment
+          
+      # 3. Finally, it reports whether it found the snacks in the pantry
+      - name: prime-cache-e1153be
+        run: echo "Cache hit result - ${{ steps.my-cache.outputs.cache-hit }}"
