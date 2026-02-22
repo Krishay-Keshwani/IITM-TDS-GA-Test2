@@ -1,3 +1,8 @@
+# Add BOTH of these lines right above your function
+@app.post("/api")
+@app.post("/")
+def get_analytics(request: AnalyticsRequest):
+    # ... rest of your code ...
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
@@ -68,5 +73,6 @@ def get_analytics(request: AnalyticsRequest):
             "avg_uptime": avg_uptime,
             "breaches": breaches
         }
+
 
     return results
