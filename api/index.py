@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import json
 import os
@@ -33,15 +34,25 @@ def calculate_percentile(data, percentile):
     if f == c: return data[int(k)]
     return data[int(f)] * (c - k) + data[int(c)] * (k - f)
 
-# Dummy routes to cleanly handle invisible bot pings without crashing
+# 1. Answer the invisible OPTIONS preflight check with the hardcoded header
 @app.options("/api")
+@app.options("/api/")
 @app.options("/")
-def preflight_handler():
-    return {"message": "OK"}
+async def preflight():
+    return JSONResponse(
+        content={"message": "CORS allowed"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+            "Access-Control-Allow-Headers": "*"
+        }
+    )
 
+# 2. Answer the actual POST test with the hardcoded header
 @app.post("/api")
+@app.post("/api/")
 @app.post("/")
-def get_analytics(request: AnalyticsRequest):
+async def get_analytics(request: AnalyticsRequest):
     results = {}
 
     for region in request.regions:
@@ -66,4 +77,12 @@ def get_analytics(request: AnalyticsRequest):
             "breaches": breaches
         }
 
-    return results
+    # 3. Manually pack the math results AND the required headers together
+    return JSONResponse(
+        content=results,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+            "Access-Control-Allow-Headers": "*"
+        }
+    )
