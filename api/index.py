@@ -1,18 +1,24 @@
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Request
 from pydantic import BaseModel
-from fastapi.middleware.cors import CORSMiddleware
 import json
 import os
 import math
 
 app = FastAPI()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# 1. THE SLEDGEHAMMER: Force the header on absolutely every response
+@app.middleware("http")
+async def add_cors_header(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    return response
+
+# 2. Handle the preflight OPTIONS request the bot might send
+@app.options("/{path:path}")
+async def options_handler(path: str):
+    return {"message": "CORS allowed"}
 
 class AnalyticsRequest(BaseModel):
     regions: list[str]
@@ -40,12 +46,11 @@ def calculate_percentile(data, percentile):
     if f == c: return data[int(k)]
     return data[int(f)] * (c - k) + data[int(c)] * (k - f)
 
+# 3. Prevent Redirect Traps by answering to all variations of the URL
 @app.post("/api")
+@app.post("/api/")
 @app.post("/")
-def get_analytics(request: AnalyticsRequest, response: Response):
-    # FORCE the exact header the bot is looking for, no questions asked
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    
+def get_analytics(request: AnalyticsRequest):
     results = {}
 
     for region in request.regions:
