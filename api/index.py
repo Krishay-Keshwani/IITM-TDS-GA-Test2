@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from pydantic import BaseModel
 import json
 import os
@@ -6,24 +6,11 @@ import math
 
 app = FastAPI()
 
-# 1. THE SLEDGEHAMMER: Force the header on absolutely every response
-@app.middleware("http")
-async def add_cors_header(request: Request, call_next):
-    response = await call_next(request)
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "POST, GET, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "*"
-    return response
-
-# 2. Handle the preflight OPTIONS request the bot might send
-@app.options("/{path:path}")
-async def options_handler(path: str):
-    return {"message": "CORS allowed"}
-
 class AnalyticsRequest(BaseModel):
     regions: list[str]
     threshold_ms: float
 
+# Load the data once
 json_path = os.path.join(os.path.dirname(__file__), 'q-vercel-latency.json')
 with open(json_path, 'r') as f:
     raw_data = json.load(f)
@@ -46,9 +33,13 @@ def calculate_percentile(data, percentile):
     if f == c: return data[int(k)]
     return data[int(f)] * (c - k) + data[int(c)] * (k - f)
 
-# 3. Prevent Redirect Traps by answering to all variations of the URL
+# Dummy routes to cleanly handle invisible bot pings without crashing
+@app.options("/api")
+@app.options("/")
+def preflight_handler():
+    return {"message": "OK"}
+
 @app.post("/api")
-@app.post("/api/")
 @app.post("/")
 def get_analytics(request: AnalyticsRequest):
     results = {}
