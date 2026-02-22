@@ -69,3 +69,4 @@ def get_analytics(request: AnalyticsRequest):
         }
 
     return results
+
