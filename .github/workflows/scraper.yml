@@ -1,0 +1,26 @@
+name: DataDash Table Scraper
+
+on:
+  workflow_dispatch: # This adds a manual "Run workflow" button
+
+jobs:
+  scrape-and-sum:
+    runs-on: ubuntu-latest # Use a temporary Linux server
+    
+    steps:
+      - name: Get the repository code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Playwright and Dependencies
+        run: |
+          pip install playwright
+          playwright install chromium
+
+      # THIS STEP NAME IS REQUIRED FOR YOUR ASSIGNMENT!
+      - name: Run Scraper by 22f2001107@ds.study.iitm.ac.in
+        run: python scrape.py
